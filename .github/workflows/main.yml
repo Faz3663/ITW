@@ -1,0 +1,38 @@
+name: Deploy Static Website to EC2
+
+# Trigger the workflow on push to the `main` branch
+on:
+  push:
+    branches:
+      - master  # Modify this if you want to use a different branch (e.g., `prod`)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
+
+    steps:
+    - name: Checkout code from GitHub repository
+      uses: actions/checkout@v2
+
+    - name: Set up SSH key
+      uses: webfactory/ssh-agent@v0.5.3  # This action sets up the SSH key for connecting to EC2
+      with:
+        ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}  # This secret stores your private SSH key
+
+    - name: Sync website files to EC2 instance
+      run: |
+        # Define variables
+        SERVER_USER=ubuntu  # Update this if you're using a different EC2 user (e.g., ec2-user for Amazon Linux)
+        SERVER_IP=your-ec2-public-ip  # Replace with your EC2 instance's public IP address
+        DEST_DIR=/var/www/html  # The web directory where you want to store the static website
+
+        # Sync website files from GitHub repo to EC2 using rsync
+        rsync -avz --delete ./ $SERVER_USER@$SERVER_IP:$DEST_DIR
+
+    - name: Restart Apache server (or Nginx)
+      run: |
+        # Restart Apache to serve the new website files
+        ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "sudo systemctl restart apache2"  # For Apache
+
+        # Or use this if you're using Nginx instead:
+        # ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "sudo systemctl restart nginx"  # For Nginx
